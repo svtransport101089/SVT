@@ -1,36 +1,18 @@
 export enum Page {
     DASHBOARD = 'DASHBOARD',
-    NEW_TRIP = 'NEW_TRIP',
     INVOICE = 'INVOICE',
-    UPDATE_TRIP = 'UPDATE_TRIP',
-    ADD_CUSTOMER = 'ADD_CUSTOMER',
+    MANAGE_INVOICES = 'MANAGE_INVOICES',
+    MANAGE_CUSTOMERS = 'MANAGE_CUSTOMERS',
     VIEW_ALL_SERVICES = 'VIEW_ALL_SERVICES',
     MANAGE_AREAS = 'MANAGE_AREAS',
     MANAGE_CALCULATIONS = 'MANAGE_CALCULATIONS',
+    MANAGE_LOOKUP = 'MANAGE_LOOKUP',
 }
 
-export interface Trip {
-    trips_memo_no: string;
-    trips_date: string;
+export interface Customer {
     customers_name: string;
     customers_address1: string;
     customers_address2: string;
-    products_item: string;
-    trips_from: string;
-    trips_to: string;
-    trips_start_km: number;
-    trips_end_km: number;
-    trips_total_km: number;
-    trips_start_time: string;
-    trips_end_time: string;
-    trips_total_time: string;
-    trips_vehicle_no: string;
-    trips_driver_name: string;
-    minimum_charges: number;
-    additional_charges: number;
-    total_charges: number;
-    advance_paid: number;
-    balance_due: number;
 }
 
 export interface CustomerAddress {
@@ -95,8 +77,12 @@ export interface InvoiceData {
     trips_permit_amt: string;
     trips_night_hault_amt: string;
 
+    trips_other_charges_desc: string;
+    trips_other_charges_amt: string;
+
     trips_total_amt: string;
     trips_less_advance: string;
     trips_balance: string;
     trips_total_amt_in_words: string;
+    trips_remark: string;
 }

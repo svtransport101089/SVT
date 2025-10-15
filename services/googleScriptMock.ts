@@ -1,5 +1,4 @@
-
-import { Trip, CustomerAddress, Rates, InvoiceData } from '../types';
+import { CustomerAddress, Rates, InvoiceData, Customer } from '../types';
 import { VEHICLE_TYPES } from '../constants';
 
 // This is a mock to simulate calls to a Google Apps Script backend.
@@ -8,33 +7,24 @@ import { VEHICLE_TYPES } from '../constants';
 const MOCK_DELAY = 500;
 
 // --- Mock Data ---
-let trips: Trip[] = [
+let invoices: InvoiceData[] = [
     {
-        trips_memo_no: 'SVS-001',
-        trips_date: '2023-10-26',
-        customers_name: 'John Doe',
-        customers_address1: '123 Main St',
-        customers_address2: 'Anytown',
-        products_item: 'TATA ACE',
-        trips_from: 'Warehouse A',
-        trips_to: 'Customer Site',
-        trips_start_km: 1000,
-        trips_end_km: 1050,
-        trips_total_km: 50,
-        trips_start_time: '09:00',
-        trips_end_time: '11:00',
-        trips_total_time: '2.00',
-        trips_vehicle_no: 'TN-01-A-1234',
-        trips_driver_name: 'Ramesh',
-        minimum_charges: 1000,
-        additional_charges: 0,
-        total_charges: 1000,
-        advance_paid: 500,
-        balance_due: 500,
+        trips_memo_no: 'SVS-001', trip_operated_date1: '2024-07-28', trip_upto_operated_date2: '',
+        trips_vehicle_no: 'TN01AB1234', customers_name: 'John Doe', customers_address1: '123 Main St', customers_address2: 'Anytown',
+        trips_starting_time1: '09:00', trips_closing_time1: '13:00', trips_starting_time2: '', trips_closing_time2: '',
+        trips_total_hours: '4.00', trips_startingKm1: '1000', trips_closingKm1: '1050', trips_startingKm2: '',
+        trips_closingKm2: '', trips_totalKm: '50', products_item: 'TATA ACE', trips_minimum_hours1: '4',
+        trips_minimum_charges1: '1000', products_item2: '', trips_minimum_hours2: '', trips_minimum_charges2: '',
+        trips_extra_hours: '0.00', trips_for_additional_hour_rate: '200', trips_for_additional_hour_amt: '0',
+        trips_fixed_amt_desc: 'Fixed Amount', trips_fixed_amt: '', trips_km: '50', trips_km_rate: '',
+        trips_Km_amt: '0', trips_discount_percentage: '', trips_discount: '0', trips_driver_bata_qty: '',
+        trips_driver_bata_rate: '', trips_driver_bata_amt: '', trips_toll_amt: '', trips_permit_amt: '',
+        trips_night_hault_amt: '', trips_other_charges_desc: 'Other Charges', trips_other_charges_amt: '0',
+        trips_total_amt: '1000', trips_less_advance: '500', trips_balance: '500',
+        trips_total_amt_in_words: 'Five Hundred Rupees Only', trips_remark: ''
     }
 ];
-let invoices: InvoiceData[] = [];
-let customers: { customers_name: string; customers_address1: string; customers_address2: string; }[] = [
+let customers: Customer[] = [
     { customers_name: 'John Doe', customers_address1: '123 Main St', customers_address2: 'Anytown' },
     { customers_name: 'Jane Smith', customers_address1: '456 Oak Ave', customers_address2: 'Otherville' }
 ];
@@ -148,17 +138,43 @@ let mockCalculations: string[][] = [
     ["TATA ACE_Area 9", "8", "200", "2800", "180", "3.5", "25"]
 ];
 
-// FIX: Added mock data for LookupCRUD component.
 let mockLookupData: string[][] = [
     ["driver_name", "license_number", "phone"],
     ["Ramesh", "TN-01-A-1234", "9876543210"],
     ["Kumar", "TN-02-B-5678", "9876543211"],
 ];
 
-let memoCounter = trips.length + 2;
-let invoiceCounter = invoices.length + 1;
-
 // --- Mock Functions ---
+
+const exportDatabase = () => {
+    return {
+        invoices,
+        customers,
+        mockAreas,
+        mockCalculations,
+        mockLookupData
+    };
+};
+
+const importDatabase = (data: any) => {
+    // Basic validation
+    if (data.invoices && Array.isArray(data.invoices) &&
+        data.customers && Array.isArray(data.customers) &&
+        data.mockAreas && Array.isArray(data.mockAreas) &&
+        data.mockCalculations && Array.isArray(data.mockCalculations) &&
+        data.mockLookupData && Array.isArray(data.mockLookupData)) {
+        
+        invoices = data.invoices;
+        customers = data.customers;
+        mockAreas = data.mockAreas;
+        mockCalculations = data.mockCalculations;
+        mockLookupData = data.mockLookupData;
+        
+        return "Database imported successfully.";
+    } else {
+        throw new Error("Invalid database file format or missing data arrays.");
+    }
+};
 
 const run = <T,>(functionName: string, ...args: any[]): Promise<T> => {
     console.log(`Mocking function ${functionName} with args:`, args);
@@ -168,16 +184,19 @@ const run = <T,>(functionName: string, ...args: any[]): Promise<T> => {
                 let result;
                 switch (functionName) {
                     case 'generateNewMemoNumber':
-                        result = `SVS-${String(memoCounter).padStart(3, '0')}`;
+                        let maxNum = 0;
+                        invoices.forEach(i => {
+                            if (i.trips_memo_no && i.trips_memo_no.includes('-')) {
+                                const num = parseInt(i.trips_memo_no.split('-')[1], 10);
+                                if (!isNaN(num) && num > maxNum) {
+                                    maxNum = num;
+                                }
+                            }
+                        });
+                        result = `SVS-${String(maxNum + 1).padStart(3, '0')}`;
                         break;
                     case 'populateProductList':
                         result = products;
-                        break;
-                    case 'saveData':
-                        const newTrip = args[0] as Trip;
-                        trips.push(newTrip);
-                        memoCounter++;
-                        result = 'SUCCESS: Trip saved';
                         break;
                     case 'fetchRatesFromSheet':
                         const productName = args[0] as string;
@@ -189,35 +208,58 @@ const run = <T,>(functionName: string, ...args: any[]): Promise<T> => {
                             .filter(c => c.customers_name.toLowerCase().includes(customerName.toLowerCase()))
                             .map(c => ({ address1: c.customers_address1, address2: c.customers_address2 }));
                         break;
+                    // Customer CRUD
+                    case 'getCustomers':
+                        result = customers;
+                        break;
                     case 'addCustomer':
-                         const newCustomer = args[0];
+                         const newCustomer = args[0] as Customer;
                          customers.push(newCustomer);
                          result = "Customer added successfully.";
                          break;
-                    case 'searchTripByMemoNo':
-                        const memoNoToSearch = args[0] as string;
-                        result = trips.find(t => t.trips_memo_no === memoNoToSearch) || null;
-                        break;
-                    case 'updateTripRecord':
-                        const tripToUpdate = args[0] as Trip;
-                        const index = trips.findIndex(t => t.trips_memo_no === tripToUpdate.trips_memo_no);
-                        if (index !== -1) {
-                            trips[index] = tripToUpdate;
-                            result = 'SUCCESS: Trip updated successfully';
+                    case 'updateCustomer':
+                        const [customerIndex, customerData] = args;
+                        if(customers[customerIndex]) {
+                            customers[customerIndex] = customerData;
+                            result = "Customer updated successfully.";
                         } else {
-                            result = 'ERROR: Trip not found';
+                            throw new Error("Customer not found");
                         }
                         break;
+                    case 'deleteCustomer':
+                        const customerIdxToDelete = args[0];
+                        if (customers[customerIdxToDelete]) {
+                            customers.splice(customerIdxToDelete, 1);
+                            result = "Customer deleted successfully.";
+                        } else {
+                            throw new Error("Customer not found");
+                        }
+                        break;
+
                     case 'saveInvoiceData':
-                        const newInvoice = args[0] as InvoiceData;
-                        invoices.push(newInvoice);
-                        invoiceCounter++;
-                         result = 'SUCCESS: Invoice saved';
+                        const invoiceData = args[0] as InvoiceData;
+                        const existingIndex = invoices.findIndex(i => i.trips_memo_no === invoiceData.trips_memo_no);
+                        if (existingIndex > -1) {
+                            invoices[existingIndex] = invoiceData;
+                            result = 'SUCCESS: Invoice updated';
+                        } else {
+                            invoices.push(invoiceData);
+                            result = 'SUCCESS: Invoice saved';
+                        }
                         break;
                     case 'searchInvoiceByMemoNo':
                          const invoiceMemoNo = args[0] as string;
                          result = invoices.find(i => i.trips_memo_no === invoiceMemoNo) || null;
                          break;
+                    case 'getInvoices':
+                        result = invoices;
+                        break;
+                    case 'deleteInvoice':
+                        const memoNoToDelete = args[0] as string;
+                        const initialLength = invoices.length;
+                        invoices = invoices.filter(i => i.trips_memo_no !== memoNoToDelete);
+                        result = invoices.length < initialLength ? 'Invoice deleted successfully' : 'Invoice not found';
+                        break;
                     // Areas
                     case 'getAreas':
                         result = mockAreas;
@@ -253,7 +295,7 @@ const run = <T,>(functionName: string, ...args: any[]): Promise<T> => {
                         mockCalculations.splice(args[0], 1);
                         result = "Record deleted";
                         break;
-                    // FIX: Added mock functions for LookupCRUD component.
+                    // Lookup
                     case 'getLookupData':
                         result = mockLookupData;
                         break;
@@ -301,6 +343,12 @@ const run = <T,>(functionName: string, ...args: any[]): Promise<T> => {
                          }
                          result = generatedData;
                         break;
+                    case 'exportDatabase':
+                        result = exportDatabase();
+                        break;
+                    case 'importDatabase':
+                        result = importDatabase(args[0]);
+                        break;
                     default:
                         reject(new Error(`Mock function not found: ${functionName}`));
                         return;
@@ -317,15 +365,17 @@ const run = <T,>(functionName: string, ...args: any[]): Promise<T> => {
 
 export const generateNewMemoNumber = (): Promise<string> => run('generateNewMemoNumber');
 export const populateProductList = (): Promise<string[]> => run('populateProductList');
-export const saveData = (trip: Trip): Promise<string> => run('saveData', trip);
 export const fetchRatesFromSheet = (productName: string): Promise<Rates> => run('fetchRatesFromSheet', productName);
 export const updateCustomerAddresses = (customerName: string): Promise<CustomerAddress[]> => run('updateCustomerAddresses', customerName);
-export const addCustomer = (customer: { customers_name: string, customers_address1: string, customers_address2: string }): Promise<string> => run('addCustomer', customer);
-export const searchTripByMemoNo = (memoNo: string): Promise<Trip | null> => run('searchTripByMemoNo', memoNo);
-export const updateTripRecord = (trip: Trip): Promise<string> => run('updateTripRecord', trip);
+export const addCustomer = (customer: Customer): Promise<string> => run('addCustomer', customer);
+export const getCustomers = (): Promise<Customer[]> => run('getCustomers');
+export const updateCustomer = (index: number, data: Customer): Promise<string> => run('updateCustomer', index, data);
+export const deleteCustomer = (index: number): Promise<string> => run('deleteCustomer', index);
 export const saveInvoiceData = (invoice: InvoiceData): Promise<string> => run('saveInvoiceData', invoice);
 export const searchInvoiceByMemoNo = (memoNo: string): Promise<InvoiceData | null> => run('searchInvoiceByMemoNo', memoNo);
 export const getViewAllServicesData = (): Promise<string[][]> => run('getViewAllServicesData');
+export const getInvoices = (): Promise<InvoiceData[]> => run('getInvoices');
+export const deleteInvoice = (memoNo: string): Promise<string> => run('deleteInvoice', memoNo);
 
 
 // Areas
@@ -340,8 +390,12 @@ export const addCalculationRecord = (record: string[]): Promise<string> => run('
 export const updateCalculationRecord = (record: string[], rowIndex: number): Promise<string> => run('updateCalculationRecord', record, rowIndex);
 export const deleteCalculationRecord = (rowIndex: number): Promise<string> => run('deleteCalculationRecord', rowIndex);
 
-// FIX: Added exports for LookupCRUD component functions.
+// Lookup
 export const getLookupData = (): Promise<string[][]> => run('getLookupData');
 export const addLookupRecord = (record: string[]): Promise<string> => run('addLookupRecord', record);
 export const updateLookupRecord = (record: string[], rowIndex: number): Promise<string> => run('updateLookupRecord', record, rowIndex);
 export const deleteLookupRecord = (rowIndex: number): Promise<string> => run('deleteLookupRecord', rowIndex);
+
+// Database
+export const exportDb = (): Promise<any> => run('exportDatabase');
+export const importDb = (data: any): Promise<string> => run('importDatabase', data);
