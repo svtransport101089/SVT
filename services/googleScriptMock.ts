@@ -10,7 +10,7 @@ const MOCK_DELAY = 500;
 let invoices: InvoiceData[] = [
     {
         trips_memo_no: 'SVS-001', trip_operated_date1: '2024-07-28', trip_upto_operated_date2: '',
-        trips_vehicle_no: 'TN01AB1234', customers_name: 'John Doe', customers_address1: '123 Main St', customers_address2: 'Anytown',
+        trips_vehicle_no: 'TN01AB1234', trips_vehicle_type: 'TATA ACE', customers_name: 'John Doe', customers_address1: '123 Main St', customers_address2: 'Anytown',
         trips_starting_time1: '09:00', trips_closing_time1: '13:00', trips_starting_time2: '', trips_closing_time2: '',
         trips_total_hours: '4.00', trips_startingKm1: '1000', trips_closingKm1: '1050', trips_startingKm2: '',
         trips_closingKm2: '', trips_totalKm: '50', products_item: 'TATA ACE', trips_minimum_hours1: '4',
@@ -336,7 +336,7 @@ const run = <T,>(functionName: string, ...args: any[]): Promise<T> => {
                                           locationCategory,
                                           vehicleType,
                                           productItem,
-                                          ...calcData.slice(0, 5) 
+                                          ...calcData.slice(0, 6) 
                                       ]);
                                  }
                              }

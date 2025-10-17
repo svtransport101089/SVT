@@ -13,7 +13,7 @@ const ViewServices: React.FC = () => {
 
     const headers = [
         "Location Area", "Location Category", "Vehicle Type", "Product Item",
-        "Min Hours", "Min KM", "Min Charges", "Add. Hour Charge", "Running Hours"
+        "Min Hours", "Min KM", "Min Charges", "Add. Hour Charge", "Running Hours", "Driver Bata"
     ];
 
     const fetchData = async () => {

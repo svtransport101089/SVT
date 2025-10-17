@@ -16,19 +16,29 @@ import LookupCRUD from './components/LookupCRUD';
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>(Page.DASHBOARD);
   const [editingInvoiceMemo, setEditingInvoiceMemo] = useState<string | null>(null);
+  const [printOnLoad, setPrintOnLoad] = useState(false);
 
   const handleNavigate = (page: Page) => {
     setEditingInvoiceMemo(null);
+    setPrintOnLoad(false);
     setCurrentPage(page);
   };
 
   const handleEditInvoice = (memoNo: string) => {
     setEditingInvoiceMemo(memoNo);
+    setPrintOnLoad(false);
+    setCurrentPage(Page.INVOICE);
+  };
+
+  const handleDownloadInvoice = (memoNo: string) => {
+    setEditingInvoiceMemo(memoNo);
+    setPrintOnLoad(true);
     setCurrentPage(Page.INVOICE);
   };
 
   const handleInvoiceFormClose = () => {
     setEditingInvoiceMemo(null);
+    setPrintOnLoad(false);
     setCurrentPage(Page.MANAGE_INVOICES);
   };
 
@@ -41,9 +51,11 @@ const App: React.FC = () => {
                   invoiceMemoToLoad={editingInvoiceMemo} 
                   onSaveSuccess={handleInvoiceFormClose}
                   onCancel={handleInvoiceFormClose} 
+                  printOnLoad={printOnLoad}
+                  onPrinted={handleInvoiceFormClose}
                />;
       case Page.MANAGE_INVOICES:
-        return <InvoiceCRUD onEditInvoice={handleEditInvoice} />;
+        return <InvoiceCRUD onEditInvoice={handleEditInvoice} onDownloadInvoice={handleDownloadInvoice} />;
       case Page.MANAGE_CUSTOMERS:
         return <CustomerCRUD />;
       case Page.VIEW_ALL_SERVICES:
@@ -57,15 +69,15 @@ const App: React.FC = () => {
       default:
         return <Dashboard />;
     }
-  }, [currentPage, editingInvoiceMemo]);
+  }, [currentPage, editingInvoiceMemo, printOnLoad]);
 
   const pageTitle = useMemo(() => {
     if (currentPage === Page.INVOICE && editingInvoiceMemo) {
-      return `Edit Invoice: ${editingInvoiceMemo}`;
+      return printOnLoad ? `Download Invoice: ${editingInvoiceMemo}` : `Edit Invoice: ${editingInvoiceMemo}`;
     }
     const pageName = currentPage.replace(/_/g, ' ');
     return pageName.charAt(0).toUpperCase() + pageName.slice(1).toLowerCase();
-  }, [currentPage, editingInvoiceMemo]);
+  }, [currentPage, editingInvoiceMemo, printOnLoad]);
 
 
   return (

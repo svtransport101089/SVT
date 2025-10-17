@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { InvoiceData, CustomerAddress } from '../../types';
+import { InvoiceData } from '../../types';
 import {
     generateNewMemoNumber,
     saveInvoiceData,
@@ -18,6 +18,7 @@ const initialInvoiceState: InvoiceData = {
     trip_operated_date1: new Date().toISOString().split('T')[0],
     trip_upto_operated_date2: '',
     trips_vehicle_no: '',
+    trips_vehicle_type: '',
     customers_name: '',
     customers_address1: '',
     customers_address2: '',
@@ -66,6 +67,8 @@ interface InvoiceFormProps {
     invoiceMemoToLoad: string | null;
     onSaveSuccess: () => void;
     onCancel: () => void;
+    printOnLoad?: boolean;
+    onPrinted?: () => void;
 }
 
 const InvoiceInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -79,7 +82,7 @@ const InvoiceTextarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement
 );
 
 
-const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSuccess, onCancel }) => {
+const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSuccess, onCancel, printOnLoad = false, onPrinted = () => {} }) => {
     const [invoiceData, setInvoiceData] = useState<InvoiceData>(initialInvoiceState);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -105,6 +108,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
             const hours1 = calculateHours(prev.trips_starting_time1, prev.trips_closing_time1);
             const hours2 = calculateHours(prev.trips_starting_time2, prev.trips_closing_time2);
             const totalHours = parseFloat((hours1 + hours2).toFixed(2));
+            const driverBataQty = Math.ceil(totalHours);
 
             const totalKm = (p(prev.trips_closingKm1) - p(prev.trips_startingKm1)) + (p(prev.trips_closingKm2) - p(prev.trips_startingKm2));
 
@@ -112,7 +116,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
             const extraHourAmt = extraHours * p(prev.trips_for_additional_hour_rate);
 
             const kmAmt = totalKm * p(prev.trips_km_rate);
-            const driverBataAmt = p(prev.trips_driver_bata_qty) * p(prev.trips_driver_bata_rate);
+            const driverBataAmt = driverBataQty * p(prev.trips_driver_bata_rate);
 
             const subTotal = p(prev.trips_minimum_charges1) + p(prev.trips_minimum_charges2) + extraHourAmt + kmAmt + driverBataAmt +
                 p(prev.trips_fixed_amt) + p(prev.trips_toll_amt) + p(prev.trips_permit_amt) + p(prev.trips_night_hault_amt) + p(prev.trips_other_charges_amt);
@@ -124,6 +128,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
             return {
                 ...prev,
                 trips_total_hours: String(totalHours),
+                trips_driver_bata_qty: String(driverBataQty),
                 trips_totalKm: String(totalKm),
                 trips_km: String(totalKm),
                 trips_extra_hours: String(extraHours.toFixed(2)),
@@ -146,7 +151,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
         invoiceData.trips_closingKm1, invoiceData.trips_startingKm2, invoiceData.trips_closingKm2,
         invoiceData.trips_minimum_hours1, invoiceData.trips_minimum_hours2, invoiceData.trips_minimum_charges1, 
         invoiceData.trips_minimum_charges2, invoiceData.trips_for_additional_hour_rate, invoiceData.trips_km_rate,
-        invoiceData.trips_driver_bata_qty, invoiceData.trips_driver_bata_rate, invoiceData.trips_fixed_amt,
+        invoiceData.trips_driver_bata_rate, invoiceData.trips_fixed_amt,
         invoiceData.trips_toll_amt, invoiceData.trips_permit_amt, invoiceData.trips_night_hault_amt,
         invoiceData.trips_other_charges_amt, invoiceData.trips_discount_percentage, invoiceData.trips_less_advance,
     ]);
@@ -183,6 +188,34 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
 
         loadInitialData();
     }, [invoiceMemoToLoad, addToast, onCancel]);
+
+    useEffect(() => {
+        if (!isLoading && printOnLoad) {
+            const handleAfterPrint = () => {
+                // Remove the listener to prevent memory leaks.
+                window.removeEventListener('afterprint', handleAfterPrint);
+                
+                // A race condition can occur where navigating away immediately interrupts
+                // the browser's PDF generation. A small delay ensures it completes.
+                setTimeout(() => {
+                    onPrinted();
+                }, 100);
+            };
+            
+            window.addEventListener('afterprint', handleAfterPrint);
+
+            // A timeout ensures the DOM is fully rendered before triggering the print dialog.
+            const printTimer = setTimeout(() => {
+                window.print();
+            }, 300);
+
+            // Cleanup if the component unmounts before printing.
+            return () => {
+                clearTimeout(printTimer);
+                window.removeEventListener('afterprint', handleAfterPrint);
+            };
+        }
+    }, [isLoading, printOnLoad, onPrinted]);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -213,28 +246,34 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
             const [
                 _locationArea, // 0
                 _locationCategory, // 1
-                _vehicleType, // 2
+                vehicleType, // 2
                 _productItem, // 3
                 minHours, // 4
                 _minKM, // 5
                 minCharges, // 6
                 addHourCharge, // 7
+                _runningHours, // 8
+                driverBata, // 9
             ] = selectedService;
 
             setInvoiceData(prev => ({
                 ...prev,
                 products_item: productItem,
+                trips_vehicle_type: vehicleType,
                 trips_minimum_hours1: minHours,
                 trips_minimum_charges1: minCharges,
                 trips_for_additional_hour_rate: addHourCharge,
+                trips_driver_bata_rate: driverBata || '0',
             }));
         } else {
              setInvoiceData(prev => ({
                 ...prev,
                 products_item: '',
+                trips_vehicle_type: '',
                 trips_minimum_hours1: '0',
                 trips_minimum_charges1: '0',
                 trips_for_additional_hour_rate: '0',
+                trips_driver_bata_rate: '0',
             }));
         }
     };
@@ -309,6 +348,10 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
                          <div className="flex items-center">
                             <label className="text-xs font-bold w-28">Vehicle No:</label>
                             <InvoiceInput name="trips_vehicle_no" value={invoiceData.trips_vehicle_no} onChange={handleChange} />
+                        </div>
+                        <div className="flex items-center">
+                            <label className="text-xs font-bold w-28">Vehicle Type:</label>
+                            <InvoiceInput name="trips_vehicle_type" value={invoiceData.trips_vehicle_type} readOnly />
                         </div>
                     </div>
                 </div>
@@ -412,7 +455,7 @@ const InvoiceForm: React.FC<InvoiceFormProps> = ({ invoiceMemoToLoad, onSaveSucc
                     </div>
                      <div className="grid grid-cols-12 items-center border-b border-gray-400">
                         <div className="col-span-6 p-1 border-r border-gray-400"><InvoiceInput value="Driver Bata" readOnly/></div>
-                        <div className="col-span-1 p-1 border-r border-gray-400"><InvoiceInput name="trips_driver_bata_qty" type="number" value={invoiceData.trips_driver_bata_qty} onChange={handleChange}/></div>
+                        <div className="col-span-1 p-1 border-r border-gray-400"><InvoiceInput name="trips_driver_bata_qty" type="number" value={invoiceData.trips_driver_bata_qty} readOnly/></div>
                         <div className="col-span-2 p-1 border-r border-gray-400"><InvoiceInput name="trips_driver_bata_rate" type="number" value={invoiceData.trips_driver_bata_rate} onChange={handleChange}/></div>
                         <div className="col-span-3 p-1"><InvoiceInput name="trips_driver_bata_amt" value={invoiceData.trips_driver_bata_amt} readOnly/></div>
                     </div>

@@ -31,6 +31,7 @@ export interface InvoiceData {
     trip_operated_date1: string;
     trip_upto_operated_date2: string;
     trips_vehicle_no: string;
+    trips_vehicle_type: string;
     customers_name: string;
     customers_address1: string;
     customers_address2: string;
